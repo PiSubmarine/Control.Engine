@@ -7,8 +7,8 @@
 `Engine`:
 
 - registers the control resource in `Lease.Api`
-- validates the presented control lease for each submitted operator command
-- receives raw `Control.Api::Input::OperatorCommand` updates through `Submit(LeaseId, OperatorCommand)`
+- validates the control lease carried by each submitted `OperatorCommand`
+- receives raw `Control.Api::Input::OperatorCommand` updates through `Control.Api::Input::ISink`
 - latches optional operator-controlled settings
 - interprets `Mode::Request`
 - selects the currently active `Control.Pilot.Api::IController`

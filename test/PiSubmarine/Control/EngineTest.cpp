@@ -61,7 +61,7 @@ namespace PiSubmarine::Control
             .WillOnce(Return(Error::Api::Result<Lease::Api::LeaseValidation>(Lease::Api::LeaseValidation{.IsValid = true})));
         Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController);
 
-        EXPECT_TRUE(engine.Submit(MakeValidLeaseId(), Api::Input::OperatorCommand{}).has_value());
+        EXPECT_TRUE(engine.Submit(Api::Input::OperatorCommand{.LeaseId = MakeValidLeaseId()}).has_value());
     }
 
     TEST(EngineTest, FirstTickActivatesManualPilotAndStepsItWithDefaultInput)
@@ -116,12 +116,13 @@ namespace PiSubmarine::Control
         const auto deltaTime = std::chrono::nanoseconds(std::chrono::milliseconds(10));
 
         const Api::Input::OperatorCommand command{
+            .LeaseId = MakeValidLeaseId(),
             .Movement = movement,
             .VerticalControl = vertical,
             .GimbalTarget = gimbal,
             .LampIntensity = lamp,
             .VideoControl = video};
-        ASSERT_TRUE(engine.Submit(MakeValidLeaseId(), command).has_value());
+        ASSERT_TRUE(engine.Submit(command).has_value());
 
         InSequence sequence;
         EXPECT_CALL(holdPositionController, SetActive(false))
@@ -171,7 +172,8 @@ namespace PiSubmarine::Control
         const auto secondUptime = std::chrono::nanoseconds(std::chrono::milliseconds(110));
         const auto deltaTime = std::chrono::nanoseconds(std::chrono::milliseconds(10));
 
-        ASSERT_TRUE(engine.Submit(MakeValidLeaseId(), Api::Input::OperatorCommand{
+        ASSERT_TRUE(engine.Submit(Api::Input::OperatorCommand{
+            .LeaseId = MakeValidLeaseId(),
             .Movement = initialMovement,
             .VerticalControl = vertical}).has_value());
 
@@ -193,7 +195,8 @@ namespace PiSubmarine::Control
 
         engine.Tick(firstUptime, deltaTime);
 
-        ASSERT_TRUE(engine.Submit(MakeValidLeaseId(), Api::Input::OperatorCommand{
+        ASSERT_TRUE(engine.Submit(Api::Input::OperatorCommand{
+            .LeaseId = MakeValidLeaseId(),
             .Movement = nextMovement,
             .VerticalControl = Vertical::Api::Command::KeepCurrentValue()}).has_value());
 
@@ -244,7 +247,8 @@ namespace PiSubmarine::Control
 
         engine.Tick(firstUptime, deltaTime);
 
-        ASSERT_TRUE(engine.Submit(MakeValidLeaseId(), Api::Input::OperatorCommand{
+        ASSERT_TRUE(engine.Submit(Api::Input::OperatorCommand{
+            .LeaseId = MakeValidLeaseId(),
             .ModeRequest = Api::Input::Mode::Request::HoldPositionValue()}).has_value());
 
         engine.Tick(secondUptime, deltaTime);
@@ -262,7 +266,7 @@ namespace PiSubmarine::Control
             .WillOnce(Return(Error::Api::Result<Lease::Api::LeaseValidation>(Lease::Api::LeaseValidation{.IsValid = false})));
         Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController);
 
-        const auto result = engine.Submit(MakeValidLeaseId(), Api::Input::OperatorCommand{});
+        const auto result = engine.Submit(Api::Input::OperatorCommand{.LeaseId = MakeValidLeaseId()});
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().Cause, make_error_code(Control::ErrorCode::InvalidControlLease));

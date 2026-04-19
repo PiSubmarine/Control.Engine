@@ -3,17 +3,17 @@
 #include <mutex>
 #include <optional>
 
+#include "PiSubmarine/Control/Api/Input/ISink.h"
 #include "PiSubmarine/Control/Api/Input/OperatorCommand.h"
 #include "PiSubmarine/Control/Engine/ErrorCode.h"
 #include "PiSubmarine/Control/Pilot/Api/IController.h"
 #include "PiSubmarine/Lease/Api/ILeaseValidator.h"
 #include "PiSubmarine/Lease/Api/IResourceRegistry.h"
-#include "PiSubmarine/Lease/Api/Identifiers.h"
 #include "PiSubmarine/Time/ITickable.h"
 
 namespace PiSubmarine::Control
 {
-    class Engine final : public Time::ITickable
+    class Engine final : public Api::Input::ISink, public Time::ITickable
     {
     public:
         // Thread-safe for Submit(...). Tick(...) must run on the single deterministic control thread.
@@ -23,9 +23,7 @@ namespace PiSubmarine::Control
             Pilot::Api::IController& manualController,
             Pilot::Api::IController& holdPositionController);
 
-        [[nodiscard]] Error::Api::Result<void> Submit(
-            const Lease::Api::LeaseId& leaseId,
-            const Api::Input::OperatorCommand& command);
+        [[nodiscard]] Error::Api::Result<void> Submit(const Api::Input::OperatorCommand& command) override;
         void Tick(const std::chrono::nanoseconds& uptime, const std::chrono::nanoseconds& deltaTime) override;
 
     private:

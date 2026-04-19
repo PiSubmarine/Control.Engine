@@ -47,11 +47,9 @@ namespace PiSubmarine::Control
         ThrowIfError(m_ResourceRegistry.RegisterResource(MakeControlResource()), "registering control resource");
     }
 
-    Error::Api::Result<void> Engine::Submit(
-        const Lease::Api::LeaseId& leaseId,
-        const Api::Input::OperatorCommand& command)
+    Error::Api::Result<void> Engine::Submit(const Api::Input::OperatorCommand& command)
     {
-        const auto validation = m_LeaseValidator.ValidateLease(leaseId, MakeControlResourceId());
+        const auto validation = m_LeaseValidator.ValidateLease(command.LeaseId, MakeControlResourceId());
         if (!validation.has_value())
         {
             return std::unexpected(MakeCommunicationError(ErrorCode::LeaseValidationFailed));
