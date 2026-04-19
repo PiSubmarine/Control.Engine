@@ -5,7 +5,7 @@
 
 #include "PiSubmarine/Control/Api/Input/ISink.h"
 #include "PiSubmarine/Control/Api/Input/OperatorCommand.h"
-#include "PiSubmarine/Control/Engine/ErrorCode.h"
+#include "EngineErrorCode.h"
 #include "PiSubmarine/Control/Pilot/Api/IController.h"
 #include "PiSubmarine/Lease/Api/ILeaseValidator.h"
 #include "PiSubmarine/Lease/Api/IResourceRegistry.h"

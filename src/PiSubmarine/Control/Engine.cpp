@@ -23,12 +23,12 @@ namespace PiSubmarine::Control
                     .LeaseDuration = std::chrono::milliseconds(3000)}};
         }
 
-        [[nodiscard]] Error::Api::Error MakeContractError(const ErrorCode code) noexcept
+        [[nodiscard]] Error::Api::Error MakeContractError(const EngineErrorCode code) noexcept
         {
             return Error::Api::MakeError(Error::Api::ErrorCondition::ContractError, make_error_code(code));
         }
 
-        [[nodiscard]] Error::Api::Error MakeCommunicationError(const ErrorCode code) noexcept
+        [[nodiscard]] Error::Api::Error MakeCommunicationError(const EngineErrorCode code) noexcept
         {
             return Error::Api::MakeError(Error::Api::ErrorCondition::CommunicationError, make_error_code(code));
         }
@@ -52,12 +52,12 @@ namespace PiSubmarine::Control
         const auto validation = m_LeaseValidator.ValidateLease(command.LeaseId, MakeControlResourceId());
         if (!validation.has_value())
         {
-            return std::unexpected(MakeCommunicationError(ErrorCode::LeaseValidationFailed));
+            return std::unexpected(MakeCommunicationError(EngineErrorCode::LeaseValidationFailed));
         }
 
         if (!validation->IsValid)
         {
-            return std::unexpected(MakeContractError(ErrorCode::InvalidControlLease));
+            return std::unexpected(MakeContractError(EngineErrorCode::InvalidControlLease));
         }
 
         std::scoped_lock lock(m_Mutex);

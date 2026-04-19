@@ -269,6 +269,6 @@ namespace PiSubmarine::Control
         const auto result = engine.Submit(Api::Input::OperatorCommand{.LeaseId = MakeValidLeaseId()});
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().Cause, make_error_code(Control::ErrorCode::InvalidControlLease));
+        EXPECT_EQ(result.error().Cause, make_error_code(Control::EngineErrorCode::InvalidControlLease));
     }
 }
