@@ -2,10 +2,12 @@
 
 #include <mutex>
 #include <optional>
+#include <memory>
 
 #include "PiSubmarine/Control/Api/Input/ISink.h"
 #include "PiSubmarine/Control/Api/Input/OperatorCommand.h"
 #include "EngineErrorCode.h"
+#include "PiSubmarine/Logging/Api/IFactory.h"
 #include "PiSubmarine/Control/Pilot/Api/IController.h"
 #include "PiSubmarine/Lease/Api/ILeaseValidator.h"
 #include "PiSubmarine/Lease/Api/IResourceRegistry.h"
@@ -21,7 +23,8 @@ namespace PiSubmarine::Control
             Lease::Api::IResourceRegistry& resourceRegistry,
             const Lease::Api::ILeaseValidator& leaseValidator,
             Pilot::Api::IController& manualController,
-            Pilot::Api::IController& holdPositionController);
+            Pilot::Api::IController& holdPositionController,
+            Logging::Api::IFactory& loggerFactory);
 
         [[nodiscard]] Error::Api::Result<void> Submit(const Api::Input::OperatorCommand& command) override;
         void Tick(const std::chrono::nanoseconds& uptime, const std::chrono::nanoseconds& deltaTime) override;
@@ -36,12 +39,13 @@ namespace PiSubmarine::Control
         void ApplyCommand(const Api::Input::OperatorCommand& command);
         void UpdateActiveController();
         [[nodiscard]] Pilot::Api::IController& GetController(PilotMode mode) noexcept;
-        static void ThrowIfError(const Error::Api::Result<void>& result, const char* action);
+        void LogIfError(const Error::Api::Result<void>& result, const char* action) const;
 
         Lease::Api::IResourceRegistry& m_ResourceRegistry;
         const Lease::Api::ILeaseValidator& m_LeaseValidator;
         Pilot::Api::IController& m_ManualController;
         Pilot::Api::IController& m_HoldPositionController;
+        std::shared_ptr<spdlog::logger> m_Logger;
 
         mutable std::mutex m_Mutex;
         std::optional<Api::Input::OperatorCommand> m_PendingCommand;

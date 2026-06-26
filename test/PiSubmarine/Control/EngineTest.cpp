@@ -1,5 +1,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <string>
+#include <spdlog/sinks/null_sink.h>
 
 #include "PiSubmarine/Control/Engine.h"
 #include "PiSubmarine/Control/Pilot/Api/IControllerMock.h"
@@ -13,6 +15,17 @@ namespace PiSubmarine::Control
         using ::testing::InSequence;
         using ::testing::Return;
         using ::testing::StrictMock;
+
+        class TestLoggerFactory final : public Logging::Api::IFactory
+        {
+        public:
+            [[nodiscard]] std::shared_ptr<spdlog::logger> CreateLogger(std::string_view name) override
+            {
+                return std::make_shared<spdlog::logger>(
+                    std::string(name),
+                    std::make_shared<spdlog::sinks::null_sink_mt>());
+            }
+        };
 
         [[nodiscard]] Lease::Api::ResourceDescriptor MakeExpectedControlResource()
         {
@@ -55,11 +68,12 @@ namespace PiSubmarine::Control
         StrictMock<Lease::Api::ILeaseValidatorMock> leaseValidator;
         StrictMock<Pilot::Api::IControllerMock> manualController;
         StrictMock<Pilot::Api::IControllerMock> holdPositionController;
+        TestLoggerFactory loggerFactory;
         EXPECT_CALL(resourceRegistry, RegisterResource(MakeExpectedControlResource()))
             .WillOnce(Return(Error::Api::Result<void>{}));
         EXPECT_CALL(leaseValidator, ValidateLease(MakeValidLeaseId(), MakeExpectedControlResourceId()))
             .WillOnce(Return(Error::Api::Result<Lease::Api::LeaseValidation>(Lease::Api::LeaseValidation{.IsValid = true})));
-        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController);
+        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController, loggerFactory);
 
         EXPECT_TRUE(engine.Submit(Api::Input::OperatorCommand{.LeaseId = MakeValidLeaseId()}).has_value());
     }
@@ -70,9 +84,10 @@ namespace PiSubmarine::Control
         StrictMock<Lease::Api::ILeaseValidatorMock> leaseValidator;
         StrictMock<Pilot::Api::IControllerMock> manualController;
         StrictMock<Pilot::Api::IControllerMock> holdPositionController;
+        TestLoggerFactory loggerFactory;
         EXPECT_CALL(resourceRegistry, RegisterResource(MakeExpectedControlResource()))
             .WillOnce(Return(Error::Api::Result<void>{}));
-        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController);
+        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController, loggerFactory);
         const auto expectedInput = Pilot::Api::Input{};
         const auto uptime = std::chrono::nanoseconds(std::chrono::milliseconds(100));
         const auto deltaTime = std::chrono::nanoseconds(std::chrono::milliseconds(10));
@@ -98,11 +113,12 @@ namespace PiSubmarine::Control
         StrictMock<Lease::Api::ILeaseValidatorMock> leaseValidator;
         StrictMock<Pilot::Api::IControllerMock> manualController;
         StrictMock<Pilot::Api::IControllerMock> holdPositionController;
+        TestLoggerFactory loggerFactory;
         EXPECT_CALL(resourceRegistry, RegisterResource(MakeExpectedControlResource()))
             .WillOnce(Return(Error::Api::Result<void>{}));
         EXPECT_CALL(leaseValidator, ValidateLease(MakeValidLeaseId(), MakeExpectedControlResourceId()))
             .WillOnce(Return(Error::Api::Result<Lease::Api::LeaseValidation>(Lease::Api::LeaseValidation{.IsValid = true})));
-        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController);
+        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController, loggerFactory);
 
         const auto movement = Horizontal::Api::Command::Create(0.5, 0.25).value();
         const auto vertical = Vertical::Api::Command::SetDepthTargetTo(3.0_m);
@@ -145,13 +161,14 @@ namespace PiSubmarine::Control
         StrictMock<Lease::Api::ILeaseValidatorMock> leaseValidator;
         StrictMock<Pilot::Api::IControllerMock> manualController;
         StrictMock<Pilot::Api::IControllerMock> holdPositionController;
+        TestLoggerFactory loggerFactory;
         EXPECT_CALL(resourceRegistry, RegisterResource(MakeExpectedControlResource()))
             .WillOnce(Return(Error::Api::Result<void>{}));
         EXPECT_CALL(leaseValidator, ValidateLease(MakeValidLeaseId(), MakeExpectedControlResourceId()))
             .WillOnce(Return(Error::Api::Result<Lease::Api::LeaseValidation>(Lease::Api::LeaseValidation{.IsValid = true})));
         EXPECT_CALL(leaseValidator, ValidateLease(MakeValidLeaseId(), MakeExpectedControlResourceId()))
             .WillOnce(Return(Error::Api::Result<Lease::Api::LeaseValidation>(Lease::Api::LeaseValidation{.IsValid = true})));
-        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController);
+        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController, loggerFactory);
 
         const auto initialMovement = Horizontal::Api::Command::Create(0.5, 0.25).value();
         const auto nextMovement = Horizontal::Api::Command::Create(-0.2, 0.1).value();
@@ -209,11 +226,12 @@ namespace PiSubmarine::Control
         StrictMock<Lease::Api::ILeaseValidatorMock> leaseValidator;
         StrictMock<Pilot::Api::IControllerMock> manualController;
         StrictMock<Pilot::Api::IControllerMock> holdPositionController;
+        TestLoggerFactory loggerFactory;
         EXPECT_CALL(resourceRegistry, RegisterResource(MakeExpectedControlResource()))
             .WillOnce(Return(Error::Api::Result<void>{}));
         EXPECT_CALL(leaseValidator, ValidateLease(MakeValidLeaseId(), MakeExpectedControlResourceId()))
             .WillOnce(Return(Error::Api::Result<Lease::Api::LeaseValidation>(Lease::Api::LeaseValidation{.IsValid = true})));
-        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController);
+        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController, loggerFactory);
 
         const auto firstUptime = std::chrono::nanoseconds(std::chrono::milliseconds(100));
         const auto secondUptime = std::chrono::nanoseconds(std::chrono::milliseconds(110));
@@ -260,15 +278,76 @@ namespace PiSubmarine::Control
         StrictMock<Lease::Api::ILeaseValidatorMock> leaseValidator;
         StrictMock<Pilot::Api::IControllerMock> manualController;
         StrictMock<Pilot::Api::IControllerMock> holdPositionController;
+        TestLoggerFactory loggerFactory;
         EXPECT_CALL(resourceRegistry, RegisterResource(MakeExpectedControlResource()))
             .WillOnce(Return(Error::Api::Result<void>{}));
         EXPECT_CALL(leaseValidator, ValidateLease(MakeValidLeaseId(), MakeExpectedControlResourceId()))
             .WillOnce(Return(Error::Api::Result<Lease::Api::LeaseValidation>(Lease::Api::LeaseValidation{.IsValid = false})));
-        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController);
+        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController, loggerFactory);
 
         const auto result = engine.Submit(Api::Input::OperatorCommand{.LeaseId = MakeValidLeaseId()});
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().Cause, make_error_code(Control::EngineErrorCode::InvalidControlLease));
+    }
+
+    TEST(EngineTest, TickContinuesWhenPilotStepFails)
+    {
+        StrictMock<Lease::Api::IResourceRegistryMock> resourceRegistry;
+        StrictMock<Lease::Api::ILeaseValidatorMock> leaseValidator;
+        StrictMock<Pilot::Api::IControllerMock> manualController;
+        StrictMock<Pilot::Api::IControllerMock> holdPositionController;
+        TestLoggerFactory loggerFactory;
+        EXPECT_CALL(resourceRegistry, RegisterResource(MakeExpectedControlResource()))
+            .WillOnce(Return(Error::Api::Result<void>{}));
+        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController, loggerFactory);
+        const auto uptime = std::chrono::nanoseconds(std::chrono::milliseconds(100));
+        const auto deltaTime = std::chrono::nanoseconds(std::chrono::milliseconds(10));
+        const auto expectedError = Error::Api::MakeError(
+            Error::Api::ErrorCondition::DeviceError,
+            make_error_code(Control::EngineErrorCode::LeaseValidationFailed));
+
+        InSequence sequence;
+        EXPECT_CALL(holdPositionController, SetActive(false))
+            .WillOnce(testing::Return(Error::Api::Result<void>{}));
+        EXPECT_CALL(manualController, SetActive(false))
+            .WillOnce(testing::Return(Error::Api::Result<void>{}));
+        EXPECT_CALL(manualController, SetActive(true))
+            .WillOnce(testing::Return(Error::Api::Result<void>{}));
+        EXPECT_CALL(manualController, SetInput(Pilot::Api::Input{}))
+            .WillOnce(testing::Return(Error::Api::Result<void>{}));
+        EXPECT_CALL(manualController, Step(uptime, deltaTime))
+            .WillOnce(testing::Return(Error::Api::Result<void>{std::unexpected(expectedError)}));
+
+        engine.Tick(uptime, deltaTime);
+    }
+
+    TEST(EngineTest, TickContinuesWhenPilotActivationFails)
+    {
+        StrictMock<Lease::Api::IResourceRegistryMock> resourceRegistry;
+        StrictMock<Lease::Api::ILeaseValidatorMock> leaseValidator;
+        StrictMock<Pilot::Api::IControllerMock> manualController;
+        StrictMock<Pilot::Api::IControllerMock> holdPositionController;
+        TestLoggerFactory loggerFactory;
+        EXPECT_CALL(resourceRegistry, RegisterResource(MakeExpectedControlResource()))
+            .WillOnce(Return(Error::Api::Result<void>{}));
+        Engine engine(resourceRegistry, leaseValidator, manualController, holdPositionController, loggerFactory);
+        const auto uptime = std::chrono::nanoseconds(std::chrono::milliseconds(100));
+        const auto deltaTime = std::chrono::nanoseconds(std::chrono::milliseconds(10));
+
+        EXPECT_CALL(holdPositionController, SetActive(false))
+            .WillOnce(testing::Return(Error::Api::Result<void>{std::unexpected(
+                Error::Api::MakeError(Error::Api::ErrorCondition::NotReady))}));
+        EXPECT_CALL(manualController, SetActive(false))
+            .WillOnce(testing::Return(Error::Api::Result<void>{}));
+        EXPECT_CALL(manualController, SetActive(true))
+            .WillOnce(testing::Return(Error::Api::Result<void>{std::unexpected(
+                Error::Api::MakeError(Error::Api::ErrorCondition::DeviceError))}));
+        EXPECT_CALL(manualController, SetInput(Pilot::Api::Input{}))
+            .WillOnce(testing::Return(Error::Api::Result<void>{}));
+        EXPECT_CALL(manualController, Step(uptime, deltaTime))
+            .WillOnce(testing::Return(Error::Api::Result<void>{}));
+
+        engine.Tick(uptime, deltaTime);
     }
 }

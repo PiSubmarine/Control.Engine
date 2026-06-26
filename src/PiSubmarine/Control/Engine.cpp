@@ -1,9 +1,12 @@
 #include "PiSubmarine/Control/Engine.h"
 
-#include <stdexcept>
+#include <string>
+
+#include <spdlog/spdlog.h>
 
 #include "PiSubmarine/Error/Api/ErrorCondition.h"
 #include "PiSubmarine/Error/Api/MakeError.h"
+#include "PiSubmarine/Error/Api/ToStringView.h"
 
 namespace PiSubmarine::Control
 {
@@ -32,19 +35,38 @@ namespace PiSubmarine::Control
         {
             return Error::Api::MakeError(Error::Api::ErrorCondition::CommunicationError, make_error_code(code));
         }
+
+        [[nodiscard]] std::string FormatErrorForLog(const Error::Api::Error& error)
+        {
+            std::string message(Error::Api::ToStringView(error.Condition));
+
+            if (error.HasCause())
+            {
+                message += " [";
+                message += error.Cause.category().name();
+                message += ':';
+                message += std::to_string(error.Cause.value());
+                message += "] ";
+                message += error.Cause.message();
+            }
+
+            return message;
+        }
     }
 
     Engine::Engine(
         Lease::Api::IResourceRegistry& resourceRegistry,
         const Lease::Api::ILeaseValidator& leaseValidator,
         Pilot::Api::IController& manualController,
-        Pilot::Api::IController& holdPositionController)
+        Pilot::Api::IController& holdPositionController,
+        Logging::Api::IFactory& loggerFactory)
         : m_ResourceRegistry(resourceRegistry)
         , m_LeaseValidator(leaseValidator)
         , m_ManualController(manualController)
         , m_HoldPositionController(holdPositionController)
+        , m_Logger(loggerFactory.CreateLogger("Control.Engine"))
     {
-        ThrowIfError(m_ResourceRegistry.RegisterResource(MakeControlResource()), "registering control resource");
+        LogIfError(m_ResourceRegistry.RegisterResource(MakeControlResource()), "registering control resource");
     }
 
     Error::Api::Result<void> Engine::Submit(const Api::Input::OperatorCommand& command)
@@ -81,8 +103,8 @@ namespace PiSubmarine::Control
         UpdateActiveController();
 
         auto& activeController = GetController(m_ActiveMode);
-        ThrowIfError(activeController.SetInput(m_Input), "setting pilot input");
-        ThrowIfError(activeController.Step(uptime, deltaTime), "stepping active pilot");
+        LogIfError(activeController.SetInput(m_Input), "setting pilot input");
+        LogIfError(activeController.Step(uptime, deltaTime), "stepping active pilot");
     }
 
     void Engine::ApplyCommand(const Api::Input::OperatorCommand& command)
@@ -126,10 +148,16 @@ namespace PiSubmarine::Control
     {
         if (!m_IsInitialized)
         {
-            ThrowIfError(GetController(PilotMode::HoldPosition).SetActive(false), "deactivating hold-position pilot");
-            ThrowIfError(GetController(PilotMode::Manual).SetActive(false), "deactivating manual pilot");
+            LogIfError(GetController(PilotMode::HoldPosition).SetActive(false), "deactivating hold-position pilot");
+            LogIfError(GetController(PilotMode::Manual).SetActive(false), "deactivating manual pilot");
 
-            ThrowIfError(GetController(m_DesiredMode).SetActive(true), "activating initial pilot");
+            const auto activateResult = GetController(m_DesiredMode).SetActive(true);
+            LogIfError(activateResult, "activating initial pilot");
+            if (!activateResult.has_value())
+            {
+                return;
+            }
+
             m_ActiveMode = m_DesiredMode;
             m_IsInitialized = true;
             return;
@@ -140,8 +168,15 @@ namespace PiSubmarine::Control
             return;
         }
 
-        ThrowIfError(GetController(m_ActiveMode).SetActive(false), "deactivating previous pilot");
-        ThrowIfError(GetController(m_DesiredMode).SetActive(true), "activating selected pilot");
+        LogIfError(GetController(m_ActiveMode).SetActive(false), "deactivating previous pilot");
+
+        const auto activateResult = GetController(m_DesiredMode).SetActive(true);
+        LogIfError(activateResult, "activating selected pilot");
+        if (!activateResult.has_value())
+        {
+            return;
+        }
+
         m_ActiveMode = m_DesiredMode;
     }
 
@@ -158,11 +193,17 @@ namespace PiSubmarine::Control
         return m_ManualController;
     }
 
-    void Engine::ThrowIfError(const Error::Api::Result<void>& result, const char* action)
+    void Engine::LogIfError(const Error::Api::Result<void>& result, const char* action) const
     {
-        if (!result.has_value())
+        if (!m_Logger || result.has_value())
         {
-            throw std::runtime_error(std::string("Control.Engine failed while ") + action);
+            return;
         }
+
+        SPDLOG_LOGGER_ERROR(
+            m_Logger,
+            "Failed while {}: {}",
+            action,
+            FormatErrorForLog(result.error()));
     }
 }
